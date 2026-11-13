@@ -1,0 +1,119 @@
+# DHODH ChEMBL cleaning script
+import os, io
+try:
+    from google.colab import files
+    up = files.upload()            # choose all four CSVs in the dialog
+    INPUT_DIR = "."
+except ImportError:                # running locally instead of Colab
+    INPUT_DIR = "."                # put the CSVs next to this script
+
+# Cell 2: settings -- edit the file names to match yours
+# %%
+FILES = {
+    "human_IC50": "homo sapiens IC50.csv",
+    "human_Ki":   "homo sapiens ki.csv",
+    "Pf_IC50":    "p falci IC50.csv",
+    "Pf_Ki":      "p falci KI.csv",
+}
+ACTIVE_MIN = 6.0     # pChEMBL >= 6  (<= 1 uM)   -> active
+INACTIVE_MAX = 5.0   # pChEMBL <= 5  (>= 10 uM)  -> inactive
+CONFLICT_LOG_UNITS = 1.0   # flag compounds whose values differ by more than this
+OUT = "cleaned_output"
+os.makedirs(OUT, exist_ok=True)
+
+# Cell 3: cleaning
+# %%
+import pandas as pd, numpy as np
+
+log, summary = [], []
+
+def record(ds, step, before, after, note=""):
+    log.append(dict(dataset=ds, step=step, rows_before=before,
+                    rows_removed=before - after, rows_after=after, note=note))
+
+for ds, fname in FILES.items():
+    d = pd.read_csv(os.path.join(INPUT_DIR, fname), sep=";", dtype=str, keep_default_na=False)
+    record(ds, "0 raw file", len(d), len(d))
+
+    def keep(step, mask, note=""):
+        """Keep rows where mask is True, log how many were removed, return removed rows."""
+        global d
+        before = len(d)
+        removed = d[~mask]
+        d = d[mask]
+        record(ds, step, before, len(d), note)
+        return removed
+
+    # 1. missing values
+    keep("1 blank Standard Value or pChEMBL",
+         (d["Standard Value"] != "") & (d["pChEMBL Value"] != ""))
+    d["pchembl"] = d["pChEMBL Value"].astype(float)
+
+    # 2. only exact values ('=') and nM units
+    rel = d["Standard Relation"].str.replace("'", "", regex=False).str.strip()
+    keep("2 relation is not '='", rel == "=")
+    keep("3 units are not nM", d["Standard Units"] == "nM")
+
+    # 4. other organisms mislabelled under this target (e.g. H. pylori in the human set)
+    pyl = (d["Assay Description"].str.contains("pylori|Helicobacter", case=False)
+           | d["Assay Organism"].str.contains("pylori", case=False))
+    removed = keep("4 other-organism rows (H. pylori)", ~pyl, "saved to a separate file")
+    if len(removed):
+        removed.to_csv(f"{OUT}/{ds}_H_pylori_rows_removed.csv", index=False)
+
+    # 5. cell-based / viral assays (not direct enzyme inhibition)
+    # BL21 / insect cells are just the expression host, so they are KEPT.
+    cell = (d["Assay Cell Type"].str.contains("MOLM", case=False)
+            | d["Assay Description"].str.contains("Measles|MOLM-13", case=False))
+    keep("5 cell-based or viral assays", ~cell)
+
+    # 6. ChEMBL data-validity warnings
+    keep("6 data validity comment present", d["Data Validity Comment"] == "")
+
+    # 7. one row per compound
+    d["is_dup"] = d["Potential Duplicate"] == "1"
+    a = (d.groupby("Molecule ChEMBL ID")
+           .agg(name=("Molecule Name", "first"),
+                max_phase=("Molecule Max Phase", "first"),
+                smiles=("Smiles", "first"),
+                n_rows=("pchembl", "size"),
+                n_flagged_duplicate=("is_dup", "sum"),
+                pchembl_median=("pchembl", "median"),
+                pchembl_mean=("pchembl", "mean"),
+                pchembl_min=("pchembl", "min"),
+                pchembl_max=("pchembl", "max"),
+                n_assays=("Assay ChEMBL ID", "nunique"),
+                n_documents=("Document ChEMBL ID", "nunique"))
+           .reset_index())
+    a["spread"] = a.pchembl_max - a.pchembl_min
+    a["conflict_flag"] = a.spread > CONFLICT_LOG_UNITS
+    a["label"] = np.where(a.pchembl_median >= ACTIVE_MIN, "active",
+                  np.where(a.pchembl_median <= INACTIVE_MAX, "inactive", "middle"))
+    a["nM_median"] = (10 ** (9 - a.pchembl_median)).round(2)
+    a = a.round(3)
+    record(ds, "7 collapse to one row per compound (median)", len(d), len(a), "unique compounds")
+    a.to_csv(f"{OUT}/{ds}_clean.csv", index=False)
+
+    c = a.label.value_counts()
+    summary.append(dict(dataset=ds, compounds=len(a),
+                        active=int(c.get("active", 0)), middle=int(c.get("middle", 0)),
+                        inactive=int(c.get("inactive", 0)),
+                        conflicting=int(a.conflict_flag.sum()),
+                        phase_1_to_4=int(a.max_phase.isin(["1.0","2.0","3.0","4.0"]).sum()),
+                        approved_phase_4=int((a.max_phase == "4.0").sum())))
+
+pd.DataFrame(log).to_csv(f"{OUT}/cleaning_log.csv", index=False)
+pd.DataFrame(summary).to_csv(f"{OUT}/label_counts.csv", index=False)
+print(pd.DataFrame(log).to_string(index=False))
+print()
+print(pd.DataFrame(summary).to_string(index=False))
+
+
+# Cell 4: download everything 
+# %%
+try:
+    import shutil
+    shutil.make_archive("cleaned_output", "zip", OUT)
+    files.download("cleaned_output.zip")
+except NameError:
+    print("Results are in the folder:", OUT)
