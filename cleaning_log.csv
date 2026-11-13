@@ -1,0 +1,33 @@
+dataset,step,rows_before,rows_removed,rows_after,note
+human_IC50,0 raw file,2393,0,2393,
+human_IC50,1 blank Standard Value or pChEMBL,2393,48,2345,
+human_IC50,2 relation is not '=',2345,0,2345,
+human_IC50,3 units are not nM,2345,0,2345,
+human_IC50,4 other-organism rows (H. pylori),2345,0,2345,saved to a separate file
+human_IC50,5 cell-based or viral assays,2345,28,2317,
+human_IC50,6 data validity comment present,2317,0,2317,
+human_IC50,7 collapse to one row per compound (median),2317,560,1757,unique compounds
+human_Ki,0 raw file,198,0,198,
+human_Ki,1 blank Standard Value or pChEMBL,198,28,170,
+human_Ki,2 relation is not '=',170,0,170,
+human_Ki,3 units are not nM,170,0,170,
+human_Ki,4 other-organism rows (H. pylori),170,12,158,saved to a separate file
+human_Ki,5 cell-based or viral assays,158,0,158,
+human_Ki,6 data validity comment present,158,0,158,
+human_Ki,7 collapse to one row per compound (median),158,6,152,unique compounds
+Pf_IC50,0 raw file,413,0,413,
+Pf_IC50,1 blank Standard Value or pChEMBL,413,19,394,
+Pf_IC50,2 relation is not '=',394,0,394,
+Pf_IC50,3 units are not nM,394,0,394,
+Pf_IC50,4 other-organism rows (H. pylori),394,0,394,saved to a separate file
+Pf_IC50,5 cell-based or viral assays,394,0,394,
+Pf_IC50,6 data validity comment present,394,0,394,
+Pf_IC50,7 collapse to one row per compound (median),394,39,355,unique compounds
+Pf_Ki,0 raw file,35,0,35,
+Pf_Ki,1 blank Standard Value or pChEMBL,35,2,33,
+Pf_Ki,2 relation is not '=',33,0,33,
+Pf_Ki,3 units are not nM,33,0,33,
+Pf_Ki,4 other-organism rows (H. pylori),33,0,33,saved to a separate file
+Pf_Ki,5 cell-based or viral assays,33,0,33,
+Pf_Ki,6 data validity comment present,33,0,33,
+Pf_Ki,7 collapse to one row per compound (median),33,1,32,unique compounds

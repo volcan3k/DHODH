@@ -1,0 +1,5 @@
+dataset,compounds,active,middle,inactive,conflicting,phase_1_to_4,approved_phase_4
+human_IC50,1757,1299,321,137,19,13,3
+human_Ki,152,109,12,31,4,4,1
+Pf_IC50,355,201,85,69,0,2,1
+Pf_Ki,32,8,11,13,0,2,2
